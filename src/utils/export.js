@@ -1,109 +1,126 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { getShops, getModels, getInventory } from './storage_v2';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { getCategories, getModels, getShops, getMasterStock, getShopStock } from './storage_v3';
 
-export const exportToPDF = () => {
+export const generateInventoryPDFBlob = () => {
   const models = getModels();
   const shops = getShops();
-  const inventory = getInventory();
+  const masterStock = getMasterStock();
+  const shopStock = getShopStock();
+  const categories = getCategories();
 
-  const doc = new jsPDF();
-  
-  // Title
+  const doc = new jsPDF('landscape');
+
+  // Header
   doc.setFontSize(22);
-  doc.setTextColor(30, 41, 59); // slate-800
-  doc.text('Advanced Inventory Status', 14, 22);
-  
-  // Date
-  doc.setFontSize(11);
-  doc.setTextColor(100, 116, 139); // slate-500
-  doc.text(`Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, 14, 30);
+  doc.setTextColor(40, 40, 40);
+  doc.text('Global Master Inventory Report', 14, 20);
 
-  if (models.length === 0) {
-    doc.setFontSize(14);
-    doc.text('No inventory models found.', 14, 50);
-    return doc;
-  }
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
 
-  const head = [['Model Name', 'SKU', 'Color', ...shops.map(s => s.name), 'Warehouse', 'Total']];
-  const body = [];
+  const tableColumn = ["SKU", "Model Type", "Category", "Color", "Size", "Total Master", "Warehouse", ...shops.map(s => s.name)];
+  const tableRows = [];
 
   models.forEach(model => {
-    model.colors.forEach(color => {
-      let colorTotal = 0;
-      const row = [model.name, model.sku, color];
-      
-      const inv = inventory[model.id] || {};
-      
-      shops.forEach(shop => {
-        const qty = inv[shop.id]?.[color] || 0;
-        row.push(qty > 0 ? qty.toString() : '-');
-        colorTotal += qty;
-      });
+    const catName = categories.find(c => c.id === model.categoryId)?.name || 'Unknown';
+    const mStock = masterStock[model.id] || {};
+    const sStockMap = shopStock[model.id] || {};
 
-      const wQty = inv['warehouse']?.[color] || 0;
-      row.push(wQty > 0 ? wQty.toString() : '-');
-      colorTotal += wQty;
+    model.colors.forEach(colorObj => {
+      const colorName = colorObj.name;
       
-      row.push(colorTotal > 0 ? colorTotal.toString() : '0');
-      
-      body.push(row);
+      colorObj.sizes.forEach(size => {
+         const initialMasterQty = mStock[colorName]?.[size] || 0;
+         if (initialMasterQty === 0) return; // Skip sizes never purchased in master
+         
+         let totalDistributed = 0;
+         const shopCols = shops.map(shop => {
+            const qty = sStockMap[shop.id]?.[colorName]?.[size] || 0;
+            totalDistributed += qty;
+            return qty === 0 ? '-' : qty.toString();
+         });
+         
+         const remainingWarehouse = initialMasterQty - totalDistributed;
+
+         tableRows.push([
+           model.sku,
+           model.name,
+           catName,
+           colorName,
+           size,
+           initialMasterQty.toString(),
+           remainingWarehouse === 0 ? '-' : remainingWarehouse.toString(),
+           ...shopCols
+         ]);
+      });
     });
   });
 
-  autoTable(doc, {
-    startY: 40,
-    head: head,
-    body: body,
+  doc.autoTable({
+    head: [tableColumn],
+    body: tableRows,
+    startY: 35,
     theme: 'grid',
-    headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
-    styles: { fontSize: 10, cellPadding: 4 },
     columnStyles: {
-      0: { fontStyle: 'bold' }
+      0: { fontStyle: 'bold' }, // SKU
+      4: { fontStyle: 'bold', textColor: [79, 70, 229] }, // Size
+      5: { fontStyle: 'bold' }, // Total Master
+      6: { fontStyle: 'bold', textColor: [22, 163, 74] } // Warehouse
     }
   });
 
-  return doc;
-};
-
-export const downloadPDF = () => {
-  const doc = exportToPDF();
-  doc.save(`Inventory_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  return doc.output('blob');
 };
 
 export const shareToWhatsAppPDF = async () => {
-  const doc = exportToPDF();
-  const fileName = `Inventory_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-  
-  if (!navigator.canShare || !navigator.share) {
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
+  try {
+    const blob = generateInventoryPDFBlob();
+    const file = new File([blob], `Inventory_Master_Report_${new Date().getTime()}.pdf`, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: 'Master Inventory Matrix',
+        text: 'Attached is the latest synchronized inventory breakdown mapping all sizes, colors, warehouse stock, and distributed shop allocations.',
+        files: [file]
+      });
+    } else {
+      // Fallback
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      alert("PDF downloaded. You can now manually text it using WhatsApp!");
+      window.open('https://wa.me/', '_blank');
+    }
+  } catch (error) {
+    console.error('Share error:', error);
+    alert('Sharing failed. Please try again.');
+  }
+};
+
+export const downloadPDF = () => {
+  try {
+    const blob = generateInventoryPDFBlob();
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = fileName;
+    a.download = `Inventory_Master_Report_${new Date().getTime()}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    
-    alert("Direct file sharing is restricted by your browser. WhatsApp will open so you can manually attach the downloaded file.");
-    window.open(`https://wa.me/?text=${encodeURIComponent('Please find the attached Inventory Report.')}`, '_blank');
-    return;
-  }
-
-  try {
-    const pdfBlob = doc.output('blob');
-    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-    if (navigator.canShare({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: 'Inventory Report',
-        text: 'Please find the attached Inventory Report.'
-      });
-    } else {
-      alert("Failed to share.");
-    }
+    URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('Error sharing PDF', error);
+    console.error('Download error:', error);
+    alert('Download failed. Please try again.');
   }
 };
