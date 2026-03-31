@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCategories, saveCategories, getModels, saveModels, getShops, getMasterStock, saveMasterStock, getShopStock, saveShopStock, getWarehouseStock, SIZES_LIST, compressImage } from '../utils/storage_v3';
-import { Plus, X, Settings2, Eye, Camera, Tag, Palette, ShieldCheck, Box } from 'lucide-react';
+import { Plus, X, Settings2, Eye, Camera, Tag, Palette, ShieldCheck, Box, PackageOpen, ChevronRight, Trash2 } from 'lucide-react';
 
 export default function ModelsPage() {
   const [isEditMode, setIsEditMode] = useState(false);
