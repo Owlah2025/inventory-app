@@ -22,6 +22,11 @@ export default function ModelsPage() {
   const [colorInput, setColorInput] = useState('');
   const [newModelStock, setNewModelStock] = useState({}); // { [color]: { [size]: qty } }
   
+  const [isInjectingColor, setIsInjectingColor] = useState(false);
+  const [injectColorName, setInjectColorName] = useState('');
+  const [injectColorSizes, setInjectColorSizes] = useState([]);
+  const [injectColorStock, setInjectColorStock] = useState({});
+  
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -145,6 +150,38 @@ export default function ModelsPage() {
     saveShopStock(newShopStock);
   };
 
+  const handleInjectColor = (e) => {
+    e.preventDefault();
+    if (!injectColorName || injectColorSizes.length === 0) {
+      alert("Please provide a color name and select at least one size.");
+      return;
+    }
+
+    if (activeModel.colors.find(c => c.name.toLowerCase() === injectColorName.toLowerCase())) {
+       alert("This color already exists on this model.");
+       return;
+    }
+
+    const updatedColors = [...activeModel.colors, { name: injectColorName, sizes: injectColorSizes }];
+    
+    const updatedModels = models.map(m => m.id === activeModel.id ? { ...m, colors: updatedColors } : m);
+    setModels(updatedModels);
+    saveModels(updatedModels);
+
+    const msData = { ...masterStock };
+    if (!msData[activeModel.id]) msData[activeModel.id] = {};
+    msData[activeModel.id][injectColorName] = injectColorStock;
+    setMasterStock(msData);
+    saveMasterStock(msData);
+
+    setActiveModel({ ...activeModel, colors: updatedColors });
+
+    setIsInjectingColor(false);
+    setInjectColorName('');
+    setInjectColorSizes([]);
+    setInjectColorStock({});
+  };
+
   // Sub-renders
   if (activeModel) {
     const mStock = masterStock[activeModel.id] || {};
@@ -240,6 +277,61 @@ export default function ModelsPage() {
             </div>
           )
         })}
+
+        {isEditMode && (
+          <button className="btn-secondary" style={{ width: '100%', marginBottom: 20, border: '1px dashed var(--primary)', color: 'var(--primary)' }} onClick={() => setIsInjectingColor(true)}>
+            <Plus size={20} /> Add New Color to this Model
+          </button>
+        )}
+
+        {isInjectingColor && (
+          <div className="modal-overlay" onClick={(e) => e.target.classList.contains('modal-overlay') && setIsInjectingColor(false)}>
+            <div className="modal-content">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                <h2>Append New Color</h2>
+                <button onClick={() => setIsInjectingColor(false)}><X size={24} color="var(--text-muted)"/></button>
+              </div>
+              <form onSubmit={handleInjectColor}>
+                <div className="form-group">
+                  <label className="form-label">Color Name</label>
+                  <input type="text" className="input-field" autoFocus placeholder="e.g. Red" value={injectColorName} onChange={e => setInjectColorName(e.target.value)} />
+                </div>
+                
+                <div className="form-group" style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <label className="form-label">Available Sizes</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                    {SIZES_LIST.map(size => {
+                      const isActive = injectColorSizes.includes(size);
+                      return (
+                        <button type="button" key={size} onClick={() => {
+                          setInjectColorSizes(isActive ? injectColorSizes.filter(s => s !== size) : [...injectColorSizes, size]);
+                        }} style={{ padding: '6px 12px', borderRadius: 8, background: isActive ? '#fff' : 'rgba(255,255,255,0.05)', color: isActive ? '#000' : 'var(--text-muted)', border: 'none', fontWeight: 600, fontSize: '0.85rem' }}>
+                          {size}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {injectColorSizes.length > 0 && (
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
+                       {injectColorSizes.map(size => (
+                         <div key={size} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '4px 8px' }}>
+                           <span style={{ width: 40, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{size}:</span>
+                           <input type="number" style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', textAlign: 'right', outline: 'none', fontWeight: 'bold' }} placeholder="Master Qty..." onChange={(e) => {
+                             const v = parseInt(e.target.value || 0, 10);
+                             setInjectColorStock({...injectColorStock, [size]: v});
+                           }} />
+                         </div>
+                       ))}
+                     </div>
+                  )}
+                </div>
+
+                <button type="submit" className="btn-primary" style={{ width: '100%', opacity: injectColorSizes.length ? 1 : 0.5 }} disabled={!injectColorSizes.length}>Inject Color</button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
