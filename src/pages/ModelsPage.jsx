@@ -150,6 +150,32 @@ export default function ModelsPage() {
     saveShopStock(newShopStock);
   };
 
+  const updateMasterIntake = (modelId, color, size, val) => {
+    const v = parseInt(val || 0, 10);
+    
+    // Safety check: limit shrinking inventory below what is physically in shops
+    const currentShopStock = shopStock;
+    let distributedTotal = 0;
+    if (currentShopStock[modelId]) {
+      Object.keys(currentShopStock[modelId]).forEach(sid => {
+        distributedTotal += (currentShopStock[modelId][sid]?.[color]?.[size] || 0);
+      });
+    }
+
+    if (v < distributedTotal) {
+      alert(`Invalid restock limit: You cannot lower master inventory below ${distributedTotal} pcs, as these are actively distributed in shops.`);
+      return;
+    }
+
+    const msData = { ...masterStock };
+    if (!msData[modelId]) msData[modelId] = {};
+    if (!msData[modelId][color]) msData[modelId][color] = {};
+    
+    msData[modelId][color][size] = v;
+    setMasterStock(msData);
+    saveMasterStock(msData);
+  };
+
   const handleInjectColor = (e) => {
     e.preventDefault();
     if (!injectColorName || injectColorSizes.length === 0) {
@@ -242,7 +268,19 @@ export default function ModelsPage() {
                     <div key={size} style={{ marginBottom: 24 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, color: 'var(--text-main)', fontWeight: 600 }}>
                          <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>Size {size}</span>
-                         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Master Intakes: {masterQty}</span>
+                         {isEditMode ? (
+                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99, 102, 241, 0.1)', padding: '4px 8px', borderRadius: 8, border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                             <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Purchased:</span>
+                             <input 
+                               type="number"
+                               style={{ width: 60, background: 'rgba(255,255,255,0.1)', border: 'none', borderBottom: '1px dashed var(--primary)', outline: 'none', color: '#fff', textAlign: 'center', fontWeight: 'bold' }}
+                               value={masterQty}
+                               onChange={(e) => updateMasterIntake(activeModel.id, colorObj.name, size, e.target.value)}
+                             />
+                           </div>
+                         ) : (
+                           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total Purchased: {masterQty}</span>
+                         )}
                       </div>
                       
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
