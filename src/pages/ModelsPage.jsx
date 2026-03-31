@@ -379,8 +379,29 @@ export default function ModelsPage() {
   // Dashboard
   return (
     <div className="page" style={{ paddingBottom: 100 }}>
+      {/* Global Header */}
+      <header className="header" style={{ padding: '0 0 20px 0', borderBottom: 'none' }}>
+        <div>
+          <h1 className="title-gradient">Master Control</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Select a parts category to map stock.</p>
+        </div>
+        <button 
+          className="btn-secondary" 
+          style={{ width: 44, height: 44, padding: 0, borderRadius: '50%', background: isEditMode ? 'var(--primary)' : 'rgba(255,255,255,0.1)', border: 'none' }}
+          onClick={() => setIsEditMode(!isEditMode)}
+        >
+          {isEditMode ? <Settings2 size={20} color="#fff" /> : <Eye size={20} color="var(--text-muted)" />}
+        </button>
+      </header>
+
+      {isEditMode && (
+       <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)', padding: 12, borderRadius: 8, marginBottom: 20, color: 'var(--primary-hover)', fontSize: '0.9rem', textAlign: 'center' }}>
+         Customization Mode Active. You add initial container stock here!
+       </div>
+      )}
+
       {categories.length === 0 ? (
-        <div style={{ textAlign: 'center', marginTop: '15vh', padding: 24 }}>
+        <div style={{ textAlign: 'center', marginTop: '10vh', padding: 24 }}>
           {isEditMode ? (
             <div onClick={() => setIsAddCategoryMode(true)} style={{ cursor: 'pointer', animation: 'slideUp 0.3s ease-out forwards' }}>
                <div style={{ width: 100, height: 100, borderRadius: 32, background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', marginBottom: 24 }}>
@@ -401,26 +422,7 @@ export default function ModelsPage() {
           )}
         </div>
       ) : (
-        <>
-          <header className="header" style={{ padding: '0 0 20px 0', borderBottom: 'none' }}>
-            <div>
-              <h1 className="title-gradient">Master Control</h1>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Select a parts category to map stock.</p>
-            </div>
-            <button 
-              className="btn-secondary" 
-              style={{ width: 44, height: 44, padding: 0, borderRadius: '50%', background: isEditMode ? 'var(--primary)' : 'rgba(255,255,255,0.1)', border: 'none' }}
-              onClick={() => setIsEditMode(!isEditMode)}
-            >
-              {isEditMode ? <Settings2 size={20} color="#fff" /> : <Eye size={20} color="var(--text-muted)" />}
-            </button>
-          </header>
-          {isEditMode && (
-           <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)', padding: 12, borderRadius: 8, marginBottom: 20, color: 'var(--primary-hover)', fontSize: '0.9rem', textAlign: 'center' }}>
-             Customization Mode Active. You add initial container stock here!
-           </div>
-          )}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) minmax(140px, 1fr)', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(140px, 1fr) minmax(140px, 1fr)', gap: 16 }}>
             {categories.map(cat => {
               const count = models.filter(m => m.categoryId === cat.id).length;
               return (
@@ -447,7 +449,6 @@ export default function ModelsPage() {
               </div>
             )}
           </div>
-        </>
       )}
 
       {isAddCategoryMode && (
