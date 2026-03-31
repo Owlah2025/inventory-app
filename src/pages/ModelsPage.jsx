@@ -279,57 +279,49 @@ export default function ModelsPage() {
         })}
 
         {isEditMode && (
-          <button className="btn-secondary" style={{ width: '100%', marginBottom: 20, border: '1px dashed var(--primary)', color: 'var(--primary)' }} onClick={() => setIsInjectingColor(true)}>
-            <Plus size={20} /> Add New Color to this Model
-          </button>
-        )}
-
-        {isInjectingColor && (
-          <div className="modal-overlay" onClick={(e) => e.target.classList.contains('modal-overlay') && setIsInjectingColor(false)}>
-            <div className="modal-content">
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                <h2>Append New Color</h2>
-                <button onClick={() => setIsInjectingColor(false)}><X size={24} color="var(--text-muted)"/></button>
-              </div>
-              <form onSubmit={handleInjectColor}>
-                <div className="form-group">
-                  <label className="form-label">Color Name</label>
-                  <input type="text" className="input-field" autoFocus placeholder="e.g. Red" value={injectColorName} onChange={e => setInjectColorName(e.target.value)} />
-                </div>
-                
-                <div className="form-group" style={{ background: 'rgba(255,255,255,0.03)', padding: 16, borderRadius: 12, border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <label className="form-label">Available Sizes</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                    {SIZES_LIST.map(size => {
-                      const isActive = injectColorSizes.includes(size);
-                      return (
-                        <button type="button" key={size} onClick={() => {
-                          setInjectColorSizes(isActive ? injectColorSizes.filter(s => s !== size) : [...injectColorSizes, size]);
-                        }} style={{ padding: '6px 12px', borderRadius: 8, background: isActive ? '#fff' : 'rgba(255,255,255,0.05)', color: isActive ? '#000' : 'var(--text-muted)', border: 'none', fontWeight: 600, fontSize: '0.85rem' }}>
-                          {size}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {injectColorSizes.length > 0 && (
-                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
-                       {injectColorSizes.map(size => (
-                         <div key={size} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '4px 8px' }}>
-                           <span style={{ width: 40, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{size}:</span>
-                           <input type="number" style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', textAlign: 'right', outline: 'none', fontWeight: 'bold' }} placeholder="Master Qty..." onChange={(e) => {
-                             const v = parseInt(e.target.value || 0, 10);
-                             setInjectColorStock({...injectColorStock, [size]: v});
-                           }} />
-                         </div>
-                       ))}
-                     </div>
-                  )}
-                </div>
-
-                <button type="submit" className="btn-primary" style={{ width: '100%', opacity: injectColorSizes.length ? 1 : 0.5 }} disabled={!injectColorSizes.length}>Inject Color</button>
-              </form>
+          <div className="card" style={{ padding: 20, border: '1px dashed var(--primary)', background: 'rgba(99, 102, 241, 0.05)' }}>
+            <label className="form-label" style={{ color: 'var(--primary)', marginBottom: 16 }}><Palette size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Append New Color to this Model</label>
+            
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <input type="text" className="input-field" placeholder="Type a color (Black, Blue, Red)..." value={injectColorName} onChange={e => setInjectColorName(e.target.value)} />
             </div>
+
+            {injectColorName && (
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: 16, borderRadius: 12 }}>
+                 <label className="form-label"><Box size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Step 2: Define Sizes & Initial Master Intake</label>
+                 
+                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                   {SIZES_LIST.map(size => {
+                     const isActive = injectColorSizes.includes(size);
+                     return (
+                       <button type="button" key={size} onClick={() => {
+                         setInjectColorSizes(isActive ? injectColorSizes.filter(s => s !== size) : [...injectColorSizes, size]);
+                       }} style={{ padding: '6px 12px', borderRadius: 8, background: isActive ? '#fff' : 'rgba(255,255,255,0.05)', color: isActive ? '#000' : 'var(--text-muted)', border: 'none', fontWeight: 600, fontSize: '0.85rem' }}>
+                         {size}
+                       </button>
+                     )
+                   })}
+                 </div>
+
+                 {injectColorSizes.length > 0 && (
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                     {injectColorSizes.map(size => (
+                       <div key={size} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '4px 8px' }}>
+                         <span style={{ width: 40, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{size}:</span>
+                         <input type="number" style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', textAlign: 'right', outline: 'none', fontWeight: 'bold' }} placeholder="Master Qty..." onChange={(e) => {
+                           const v = parseInt(e.target.value || 0, 10);
+                           setInjectColorStock({...injectColorStock, [size]: v});
+                         }} />
+                       </div>
+                     ))}
+                   </div>
+                 )}
+
+                 <button onClick={handleInjectColor} className="btn-primary" style={{ width: '100%', opacity: injectColorSizes.length ? 1 : 0.5 }} disabled={!injectColorSizes.length}>
+                    Inject Original Intake
+                 </button>
+              </div>
+            )}
           </div>
         )}
       </div>
