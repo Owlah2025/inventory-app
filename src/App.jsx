@@ -1,9 +1,10 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
-import { Shirt, Store, Download } from 'lucide-react';
+import { Settings2, Building2, Store, Download } from 'lucide-react';
 import ModelsPage from './pages/ModelsPage';
 import ShopsPage from './pages/ShopsPage';
 import SettingsPage from './pages/SettingsPage';
+import WarehousePage from './pages/WarehousePage';
 
 function App() {
   return (
@@ -11,14 +12,19 @@ function App() {
       <div className="app-container">
         <Routes>
           <Route path="/" element={<ModelsPage />} />
+          <Route path="/warehouse" element={<WarehousePage />} />
           <Route path="/shops" element={<ShopsPage />} />
           <Route path="/export" element={<SettingsPage />} />
         </Routes>
 
         <nav className="bottom-nav">
           <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <Shirt size={24} />
-            <span>Inventory</span>
+            <Settings2 size={24} />
+            <span>Map Master</span>
+          </NavLink>
+          <NavLink to="/warehouse" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Building2 size={24} />
+            <span>Warehouse</span>
           </NavLink>
           <NavLink to="/shops" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <Store size={24} />
