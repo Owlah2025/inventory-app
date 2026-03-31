@@ -304,7 +304,7 @@ export default function ModelsPage() {
                  </div>
 
                  {injectColorSizes.length > 0 && (
-                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8, marginBottom: 16 }}>
                      {injectColorSizes.map(size => (
                        <div key={size} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '4px 8px' }}>
                          <span style={{ width: 40, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{size}:</span>
@@ -437,7 +437,7 @@ export default function ModelsPage() {
                          </div>
 
                          {colorObj.sizes.length > 0 && (
-                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
+                           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
                              {colorObj.sizes.map(size => (
                                <div key={size} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '4px 8px' }}>
                                  <span style={{ width: 40, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{size}:</span>
