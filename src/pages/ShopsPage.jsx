@@ -1,21 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { getShops, saveShops, getModels, getShopStock, SIZES_LIST } from '../utils/storage_v3';
-import { Plus, X, Store, AlertCircle } from 'lucide-react';
+import { getShops, saveShops, getModels, getShopStock, saveShopStock, getMasterStock, saveMasterStock, SIZES_LIST } from '../utils/storage_v3';
+import { Plus, X, Store, AlertCircle, Settings2, Eye, Image as ImageIcon } from 'lucide-react';
 
 export default function ShopsPage() {
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isSalesMode, setIsSalesMode] = useState(false);
   const [shops, setShops] = useState([]);
   const [models, setModels] = useState([]);
   const [shopStock, setShopStock] = useState({});
+  const [masterStock, setMasterStock] = useState({});
   const [activeShop, setActiveShop] = useState(null);
   
   const [newShopName, setNewShopName] = useState('');
   const [isAddShopMode, setIsAddShopMode] = useState(false);
 
+  const [viewingImage, setViewingImage] = useState(null);
+
   useEffect(() => {
     setShops(getShops());
     setModels(getModels());
     setShopStock(getShopStock());
+    setMasterStock(getMasterStock());
   }, []);
 
   const handleCreateShop = (e) => {
@@ -34,23 +39,63 @@ export default function ShopsPage() {
       const s = shops.filter(x => x.id !== shop.id);
       setShops(s);
       saveShops(s);
-      
-      // We don't necessarily delete the shopStock mapping to prevent complete data destruction on accidental deletion,
-      // but the shop is gone. 
     }
   };
 
-  if (activeShop) {
-    // Generate the view for this specifically allocated shop
-    // Only show models that physically have > 0 stock allocated to this shop in any size/color
+  const handleUpdateShopInventory = (modelId, color, size, newVal) => {
+    const newQty = parseInt(newVal || 0, 10);
+    if (newQty < 0) return;
+
+    const currentQty = shopStock[modelId]?.[activeShop.id]?.[color]?.[size] || 0;
+    const difference = newQty - currentQty; 
     
+    // If difference is 0, nothing changed
+    if (difference === 0) return;
+
+    // 1. Update Shop Stock
+    const newShopStock = { ...shopStock };
+    if (!newShopStock[modelId]) newShopStock[modelId] = {};
+    if (!newShopStock[modelId][activeShop.id]) newShopStock[modelId][activeShop.id] = {};
+    if (!newShopStock[modelId][activeShop.id][color]) newShopStock[modelId][activeShop.id][color] = {};
+    newShopStock[modelId][activeShop.id][color][size] = newQty;
+    
+    setShopStock(newShopStock);
+    saveShopStock(newShopStock);
+
+    // 2. Update Master Stock to reflect permanent deletion from the ecosystem (a sale!)
+    const mQty = masterStock[modelId]?.[color]?.[size] || 0;
+    const newMasterQty = Math.max(0, mQty + difference);
+    
+    const msData = { ...masterStock };
+    if (!msData[modelId]) msData[modelId] = {};
+    if (!msData[modelId][color]) msData[modelId][color] = {};
+    msData[modelId][color][size] = newMasterQty;
+    
+    setMasterStock(msData);
+    saveMasterStock(msData);
+  };
+
+  const ImageViewer = () => {
+    if (!viewingImage) return null;
+    return (
+      <div className="modal-overlay" onClick={() => setViewingImage(null)}>
+        <div style={{ background: '#000', padding: 12, borderRadius: 16, position: 'relative', maxWidth: '90%', maxHeight: '90%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <button style={{ position: 'absolute', top: -40, right: 0, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} onClick={() => setViewingImage(null)}>
+            <X size={32} />
+          </button>
+          <img src={viewingImage} style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 8, objectFit: 'contain' }} alt="Model Photo" />
+        </div>
+      </div>
+    );
+  };
+
+  if (activeShop) {
     const assignedModels = [];
     
     models.forEach(m => {
       let hasAnyStockInShop = false;
       const thisModelStock = shopStock[m.id]?.[activeShop.id] || {};
       
-      // Calculate total holding for this shop to see if we should render the card
       Object.keys(thisModelStock).forEach(colorName => {
         Object.values(thisModelStock[colorName]).forEach(qty => {
           if (qty > 0) hasAnyStockInShop = true;
@@ -63,12 +108,27 @@ export default function ShopsPage() {
     return (
       <div className="page" style={{ animation: 'none', paddingBottom: 100 }}>
         <header className="header" style={{ padding: '0 0 20px 0', borderBottom: 'none' }}>
-          <button className="btn-secondary" style={{ padding: '8px 12px' }} onClick={() => setActiveShop(null)}>Back</button>
-          <div style={{ textAlign: 'right' }}>
-            <h1 className="title-gradient" style={{ fontSize: '1.4rem' }}>{activeShop.name}</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Location Overview</p>
+          <button className="btn-secondary" style={{ padding: '8px 12px' }} onClick={() => { setActiveShop(null); setIsSalesMode(false); }}>Back</button>
+          <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button 
+               className="btn-secondary" 
+               style={{ width: 44, height: 44, padding: 0, borderRadius: '50%', background: isSalesMode ? 'var(--danger)' : 'rgba(255,255,255,0.1)', border: 'none', color: '#fff' }}
+               onClick={() => setIsSalesMode(!isSalesMode)}
+            >
+               {isSalesMode ? <Settings2 size={20} /> : <Settings2 size={20} />}
+            </button>
+            <div>
+              <h1 className="title-gradient" style={{ fontSize: '1.4rem' }}>{activeShop.name}</h1>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Location Overview</p>
+            </div>
           </div>
         </header>
+
+        {isSalesMode && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px dashed var(--danger)', padding: 12, borderRadius: 8, marginBottom: 20, color: 'var(--danger)', fontSize: '0.9rem', textAlign: 'center' }}>
+            <strong>Record Sales Mode Active.</strong> Changing inventory here will permanently remove it from the entire system.
+          </div>
+        )}
 
         {assignedModels.length === 0 ? (
           <div style={{ textAlign: 'center', marginTop: 100, color: 'var(--text-muted)' }}>
@@ -80,7 +140,6 @@ export default function ShopsPage() {
           assignedModels.map(model => {
             const mStock = shopStock[model.id]?.[activeShop.id] || {};
             
-            // Calculate total items assigned to this specific shop globally for this model
             let totalItemsInShop = 0;
             Object.values(mStock).forEach(cMap => {
               Object.values(cMap).forEach(q => totalItemsInShop += q);
@@ -89,8 +148,15 @@ export default function ShopsPage() {
             return (
               <div key={model.id} className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>#{model.sku}</span> {model.name}
+                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {model.image && (
+                       <div onClick={(e) => { e.stopPropagation(); setViewingImage(model.image); }} style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+                         <img src={model.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={model.name} />
+                       </div>
+                    )}
+                    <div>
+                      <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>#{model.sku}</span> {model.name}
+                    </div>
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{totalItemsInShop} pcs held</div>
                 </div>
@@ -98,7 +164,6 @@ export default function ShopsPage() {
                 <div style={{ padding: 20 }}>
                   {model.colors.map(colorObj => {
                     const colorStock = mStock[colorObj.name] || {};
-                    // if this shop has 0 of this color completely, hide the color block
                     let totalOfThisColor = 0;
                     Object.values(colorStock).forEach(q => totalOfThisColor += q);
                     if (totalOfThisColor === 0) return null;
@@ -110,7 +175,7 @@ export default function ShopsPage() {
                          <div style={{ display: 'grid', gap: 8 }}>
                             {colorObj.sizes.map(size => {
                               const qty = colorStock[size] || 0;
-                              if (qty === 0) return null; // Don't show sizes this shop doesn't have
+                              if (qty === 0) return null; 
                               
                               const isLowStock = qty <= 2;
 
@@ -120,13 +185,26 @@ export default function ShopsPage() {
                                       <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fff', width: 32 }}>{size}</span>
                                       {isLowStock && (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600, background: 'rgba(239, 68, 68, 0.2)', padding: '2px 8px', borderRadius: 8 }}>
-                                          <AlertCircle size={12}/> Low Restock Needed
+                                          <AlertCircle size={12}/> Request Restock from Inventory
                                         </span>
                                       )}
                                    </div>
-                                   <div style={{ fontWeight: 800, fontSize: '1.2rem', color: isLowStock ? 'var(--danger)' : 'var(--primary)' }}>
-                                      {qty} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>pcs</span>
-                                   </div>
+                                   
+                                   {isSalesMode ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--danger)' }}>End-of-day Stock:</span>
+                                        <input 
+                                          type="number"
+                                          style={{ width: 60, background: 'rgba(255,255,255,0.1)', border: 'none', borderBottom: '1px dashed var(--danger)', outline: 'none', color: '#fff', textAlign: 'center', fontWeight: 'bold' }}
+                                          value={qty}
+                                          onChange={(e) => handleUpdateShopInventory(model.id, colorObj.name, size, e.target.value)}
+                                        />
+                                      </div>
+                                   ) : (
+                                      <div style={{ fontWeight: 800, fontSize: '1.2rem', color: isLowStock ? 'var(--danger)' : 'var(--primary)' }}>
+                                         {qty} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>pcs</span>
+                                      </div>
+                                   )}
                                 </div>
                               )
                             })}
@@ -139,6 +217,7 @@ export default function ShopsPage() {
             )
           })
         )}
+        <ImageViewer />
       </div>
     );
   }
@@ -163,7 +242,6 @@ export default function ShopsPage() {
 
       <div style={{ display: 'grid', gap: 12 }}>
         {shops.map(shop => {
-          // Calculate global distribution to this shop to show on the tile
           let globalItemsCount = 0;
           Object.values(shopStock).forEach(modelMap => {
              const mStock = modelMap[shop.id] || {};

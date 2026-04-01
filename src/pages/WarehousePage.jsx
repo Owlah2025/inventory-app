@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getModels, getMasterStock, getShopStock, getShops, saveShopStock } from '../utils/storage_v3';
-import { Box, AlertCircle, PackageOpen, Settings2, Eye } from 'lucide-react';
+import { Box, AlertCircle, PackageOpen, Settings2, Eye, Image as ImageIcon, X } from 'lucide-react';
 
 export default function WarehousePage() {
   const [isEditMode, setIsEditMode] = useState(false);
@@ -8,6 +8,8 @@ export default function WarehousePage() {
   const [shops, setShops] = useState([]);
   const [masterStock, setMasterStock] = useState({});
   const [shopStock, setShopStock] = useState({});
+  
+  const [viewingImage, setViewingImage] = useState(null);
 
   useEffect(() => {
     setModels(getModels());
@@ -35,7 +37,7 @@ export default function WarehousePage() {
     }
     
     if (otherShopsTotal + v > masterQty) {
-      alert(`Cannot assign ${v}. Only ${masterQty - otherShopsTotal} pieces left in Warehouse!`);
+      alert(`Cannot assign ${v}. Only ${masterQty - otherShopsTotal} pieces left in Inventory!`);
       return;
     }
 
@@ -49,12 +51,26 @@ export default function WarehousePage() {
     saveShopStock(newShopStock);
   };
 
+  const ImageViewer = () => {
+    if (!viewingImage) return null;
+    return (
+      <div className="modal-overlay" onClick={() => setViewingImage(null)}>
+        <div style={{ background: '#000', padding: 12, borderRadius: 16, position: 'relative', maxWidth: '90%', maxHeight: '90%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <button style={{ position: 'absolute', top: -40, right: 0, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} onClick={() => setViewingImage(null)}>
+            <X size={32} />
+          </button>
+          <img src={viewingImage} style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 8, objectFit: 'contain' }} alt="Model Photo" />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="page" style={{ paddingBottom: 100 }}>
        <header className="header" style={{ padding: '0 0 20px 0', borderBottom: 'none' }}>
         <div>
-          <h1 className="title-gradient">Distribution Hub</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Distribute items from master stock into shops.</p>
+          <h1 className="title-gradient">Distribution</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Assign available inventory into shops.</p>
         </div>
         <button 
           className="btn-secondary" 
@@ -67,14 +83,14 @@ export default function WarehousePage() {
 
       {isEditMode && (
        <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)', padding: 12, borderRadius: 8, marginBottom: 20, color: 'var(--primary-hover)', fontSize: '0.9rem', textAlign: 'center' }}>
-         Distribution Mode Active. Modify shop stock here!
+         Distribution Mode Active. Modify shop allocations here!
        </div>
       )}
 
       {models.length === 0 ? (
         <div style={{ textAlign: 'center', marginTop: 100, color: 'var(--text-muted)' }}>
           <PackageOpen size={48} color="var(--text-muted)" style={{ opacity: 0.3, marginBottom: 16 }} />
-          <p>Warehouse is currently completely empty.</p>
+          <p>Inventory is completely empty.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -103,10 +119,17 @@ export default function WarehousePage() {
             return (
               <div key={model.id} className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
                 <div style={{ padding: '16px 20px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                   <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                     <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>#{model.sku}</span> {model.name}
+                   <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 12 }}>
+                     {model.image && (
+                        <div onClick={(e) => { e.stopPropagation(); setViewingImage(model.image); }} style={{ width: 32, height: 32, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>
+                          <img src={model.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={model.name} />
+                        </div>
+                     )}
+                     <div>
+                       <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>#{model.sku}</span> {model.name}
+                     </div>
                    </div>
-                   <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{totalRemaining} total pcs in warehouse</div>
+                   <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{totalRemaining} available</div>
                 </div>
 
                 <div style={{ padding: 20 }}>
@@ -139,15 +162,10 @@ export default function WarehousePage() {
                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                              <span style={{ fontWeight: 800, fontSize: '1.2rem', color: '#fff', width: 32 }}>{size}</span>
-                                             {isLowStock && (
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600, background: 'rgba(239, 68, 68, 0.2)', padding: '2px 8px', borderRadius: 8 }}>
-                                                  <AlertCircle size={12}/> Critical: Supplier Reorder Needed
-                                                </span>
-                                             )}
                                           </div>
                                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                                              <span style={{ fontWeight: 800, fontSize: '1.2rem', color: isLowStock ? 'var(--danger)' : 'var(--primary)' }}>
-                                                {warehouseQty} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>left in warehouse</span>
+                                                {warehouseQty} <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-muted)' }}>available to assign</span>
                                              </span>
                                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(from total: {masterQty})</span>
                                           </div>
@@ -186,6 +204,7 @@ export default function WarehousePage() {
           })}
         </div>
       )}
+      <ImageViewer />
     </div>
   )
 }

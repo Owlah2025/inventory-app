@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCategories, saveCategories, getModels, saveModels, getShops, getMasterStock, saveMasterStock, getShopStock, saveShopStock, getWarehouseStock, SIZES_LIST, compressImage } from '../utils/storage_v3';
-import { Plus, X, Settings2, Eye, Camera, Tag, Palette, ShieldCheck, Box, PackageOpen, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, X, Settings2, Eye, Camera, Tag, Palette, ShieldCheck, Box, PackageOpen, ChevronRight, Image as ImageIcon } from 'lucide-react';
 
 export default function ModelsPage() {
   const [isEditMode, setIsEditMode] = useState(false);
@@ -13,21 +13,28 @@ export default function ModelsPage() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [activeModel, setActiveModel] = useState(null);
   
+  // Modals for Categories
   const [isAddCategoryMode, setIsAddCategoryMode] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatImage, setNewCatImage] = useState(null);
+  const catFileInputRef = useRef(null);
   
+  // Modals for Models
   const [isAddModelMode, setIsAddModelMode] = useState(false);
   const [newModelData, setNewModelData] = useState({ name: '', sku: '', colors: [] });
+  const [newModelImage, setNewModelImage] = useState(null);
   const [colorInput, setColorInput] = useState('');
   const [newModelStock, setNewModelStock] = useState({}); // { [color]: { [size]: qty } }
+  const modelFileInputRef = useRef(null);
   
+  // Color injection
   const [isInjectingColor, setIsInjectingColor] = useState(false);
   const [injectColorName, setInjectColorName] = useState('');
   const [injectColorSizes, setInjectColorSizes] = useState([]);
   const [injectColorStock, setInjectColorStock] = useState({});
-  
-  const fileInputRef = useRef(null);
+
+  // Image Viewer
+  const [viewingImage, setViewingImage] = useState(null);
 
   useEffect(() => {
     setCategories(getCategories());
@@ -48,11 +55,19 @@ export default function ModelsPage() {
     setNewCatImage(null);
   };
 
-  const onImageUpload = async (e) => {
+  const onCatImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const base64 = await compressImage(file);
       setNewCatImage(base64);
+    }
+  };
+
+  const onModelImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const base64 = await compressImage(file);
+      setNewModelImage(base64);
     }
   };
 
@@ -101,7 +116,8 @@ export default function ModelsPage() {
       sku: newModelData.sku, 
       name: newModelData.name, 
       categoryId: activeCategory.id,
-      colors: newModelData.colors 
+      colors: newModelData.colors,
+      image: newModelImage // Saving the image with the model
     }];
     setModels(updatedModels);
     saveModels(updatedModels);
@@ -114,10 +130,9 @@ export default function ModelsPage() {
     setIsAddModelMode(false);
     setNewModelData({ name: '', sku: '', colors: [] });
     setNewModelStock({});
+    setNewModelImage(null);
     setColorInput('');
   };
-
-
 
   const updateMasterIntake = (modelId, color, size, val) => {
     const v = parseInt(val || 0, 10);
@@ -132,7 +147,7 @@ export default function ModelsPage() {
     }
 
     if (v < distributedTotal) {
-      alert(`Invalid restock limit: You cannot lower master inventory below ${distributedTotal} pcs, as these are actively distributed in shops.`);
+      alert(`Invalid restock limit: You cannot lower warehouse inventory below ${distributedTotal} pcs, as these are actively distributed in shops.`);
       return;
     }
 
@@ -177,7 +192,30 @@ export default function ModelsPage() {
     setInjectColorStock({});
   };
 
-  // Sub-renders
+  // Image Viewer Modal Component
+  const ImageViewer = () => {
+    if (!viewingImage) return null;
+    return (
+      <div className="modal-overlay" onClick={() => setViewingImage(null)}>
+        <div style={{ background: '#000', padding: 12, borderRadius: 16, position: 'relative', maxWidth: '90%', maxHeight: '90%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <button style={{ position: 'absolute', top: -40, right: 0, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} onClick={() => setViewingImage(null)}>
+            <X size={32} />
+          </button>
+          <img src={viewingImage} style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: 8, objectFit: 'contain' }} alt="Model Photo" />
+        </div>
+      </div>
+    );
+  };
+
+  // Calculate Global Summary
+  let globalTotalItems = 0;
+  Object.values(masterStock).forEach(modelMap => {
+    Object.values(modelMap).forEach(colorMap => {
+      Object.values(colorMap).forEach(qty => globalTotalItems += qty);
+    });
+  });
+
+  // ---------- SUB-RENDER: ACTIVE MODEL ----------
   if (activeModel) {
     const mStock = masterStock[activeModel.id] || {};
     const sStock = shopStock[activeModel.id] || {};
@@ -198,15 +236,25 @@ export default function ModelsPage() {
       <div className="page" style={{ animation: 'none', paddingBottom: 100 }}>
         <header className="header" style={{ padding: '0 0 20px 0', borderBottom: 'none' }}>
           <button className="btn-secondary" style={{ padding: '8px 12px' }} onClick={() => setActiveModel(null)}>Back</button>
-          <div style={{ textAlign: 'right' }}>
-            <h1 className="title-gradient" style={{ fontSize: '1.4rem' }}>{activeModel.name}</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>SKU: {activeModel.sku}</p>
+          <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' }}>
+            {activeModel.image && (
+              <button 
+                onClick={() => setViewingImage(activeModel.image)}
+                style={{ background: 'rgba(99, 102, 241, 0.1)', border: 'none', borderRadius: 8, padding: 8, color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <ImageIcon size={20} />
+              </button>
+            )}
+            <div>
+              <h1 className="title-gradient" style={{ fontSize: '1.4rem' }}>{activeModel.name}</h1>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>SKU: {activeModel.sku}</p>
+            </div>
           </div>
         </header>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
           <div className="card" style={{ marginBottom: 0, padding: 16, background: 'var(--primary)', color: '#fff' }}>
-             <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>Total Master Stock</div>
+             <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>Total System Inventory</div>
              <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{grandTotalMaster}</div>
           </div>
           <div className="card" style={{ marginBottom: 0, padding: 16, background: 'rgba(255,255,255,0.05)' }}>
@@ -224,9 +272,8 @@ export default function ModelsPage() {
               <div style={{ padding: 20 }}>
                 {colorObj.sizes.map(size => {
                   const masterQty = mStock[colorObj.name]?.[size] || 0;
-                  if (masterQty === 0 && !isEditMode) return null; // hide 0 stock in view mode
+                  if (masterQty === 0 && !isEditMode) return null; 
                   
-                  // calculate warehouse remaining
                   let distributedForSize = 0;
                   Object.values(sStock).forEach(shopMap => {
                     distributedForSize += (shopMap[colorObj.name]?.[size] || 0);
@@ -239,7 +286,7 @@ export default function ModelsPage() {
                          <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>Size {size}</span>
                          {isEditMode ? (
                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99, 102, 241, 0.1)', padding: '4px 8px', borderRadius: 8, border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                             <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Restock Master:</span>
+                             <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Restock Warehouse:</span>
                              <input 
                                type="number"
                                style={{ width: 60, background: 'rgba(255,255,255,0.1)', border: 'none', borderBottom: '1px dashed var(--primary)', outline: 'none', color: '#fff', textAlign: 'center', fontWeight: 'bold' }}
@@ -248,7 +295,7 @@ export default function ModelsPage() {
                              />
                            </div>
                          ) : (
-                           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Inventory Added: {masterQty}</span>
+                           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Warehouse Inventory Added: {masterQty}</span>
                          )}
                       </div>
                       
@@ -268,15 +315,15 @@ export default function ModelsPage() {
 
         {isEditMode && (
           <div className="card" style={{ padding: 20, border: '1px dashed var(--primary)', background: 'rgba(99, 102, 241, 0.05)' }}>
-            <label className="form-label" style={{ color: 'var(--primary)', marginBottom: 16 }}><Palette size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Append New Color to this Model</label>
+            <label className="form-label" style={{ color: 'var(--primary)', marginBottom: 16 }}><Palette size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Append New Color</label>
             
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              <input type="text" className="input-field" placeholder="Type a color (Black, Blue, Red)..." value={injectColorName} onChange={e => setInjectColorName(e.target.value)} />
+              <input type="text" className="input-field" placeholder="Color name (e.g. Red)..." value={injectColorName} onChange={e => setInjectColorName(e.target.value)} />
             </div>
 
             {injectColorName && (
               <div style={{ background: 'rgba(0,0,0,0.2)', padding: 16, borderRadius: 12 }}>
-                 <label className="form-label"><Box size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Step 2: Define Sizes & Initial Master Intake</label>
+                 <label className="form-label"><Box size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Define Sizes & Initial Inventory</label>
                  
                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
                    {SIZES_LIST.map(size => {
@@ -296,7 +343,7 @@ export default function ModelsPage() {
                      {injectColorSizes.map(size => (
                        <div key={size} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '4px 8px' }}>
                          <span style={{ width: 40, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{size}:</span>
-                         <input type="number" style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', textAlign: 'right', outline: 'none', fontWeight: 'bold' }} placeholder="Master Qty..." onChange={(e) => {
+                         <input type="number" style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', textAlign: 'right', outline: 'none', fontWeight: 'bold' }} placeholder="Qty added..." onChange={(e) => {
                            const v = parseInt(e.target.value || 0, 10);
                            setInjectColorStock({...injectColorStock, [size]: v});
                          }} />
@@ -306,16 +353,18 @@ export default function ModelsPage() {
                  )}
 
                  <button onClick={handleInjectColor} className="btn-primary" style={{ width: '100%', opacity: injectColorSizes.length ? 1 : 0.5 }} disabled={!injectColorSizes.length}>
-                    Inject Original Intake
+                    Inject Inventory
                  </button>
               </div>
             )}
           </div>
         )}
+        <ImageViewer />
       </div>
     );
   }
 
+  // ---------- SUB-RENDER: ACTIVE CATEGORY ----------
   if (activeCategory) {
     const categoryModels = models.filter(m => m.categoryId === activeCategory.id);
     return (
@@ -348,19 +397,31 @@ export default function ModelsPage() {
             });
 
             return (
-              <div key={model.id} className="card" onClick={() => setActiveModel(model)} style={{ cursor: 'pointer' }}>
-                <div className="card-header" style={{ marginBottom: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span className="badge" style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>#{model.sku}</span>
-                    <div className="card-title">{model.name}</div>
+              <div key={model.id} className="card" style={{ cursor: 'pointer', display: 'flex', gap: 16, alignItems: 'center' }}>
+                {model.image ? (
+                  <div onClick={(e) => { e.stopPropagation(); setViewingImage(model.image); }} style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <img src={model.image} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={model.name} />
                   </div>
-                </div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
-                  {model.colors.map(c => c.name).join(' • ')} (Sizes Available)
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: 12 }}>
-                  <div style={{ fontWeight: 600 }}>Master Intakes: {total} pcs</div>
-                  <ChevronRight size={18} color="var(--text-muted)"/>
+                ) : (
+                  <div onClick={(e) => e.stopPropagation()} style={{ width: 64, height: 64, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <ImageIcon size={24} color="var(--text-muted)" />
+                  </div>
+                )}
+                
+                <div style={{ flex: 1 }} onClick={() => setActiveModel(model)}>
+                  <div className="card-header" style={{ marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="badge" style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>#{model.sku}</span>
+                      <div className="card-title">{model.name}</div>
+                    </div>
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 8 }}>
+                    {model.colors.map(c => c.name).join(' • ')} (Sizes Available)
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: 8 }}>
+                    <div style={{ fontWeight: 600 }}>Total Units: {total} pcs</div>
+                    <ChevronRight size={18} color="var(--text-muted)"/>
+                  </div>
                 </div>
               </div>
             )
@@ -371,10 +432,19 @@ export default function ModelsPage() {
           <div className="modal-overlay" onClick={(e) => e.target.classList.contains('modal-overlay') && setIsAddModelMode(false)}>
             <div className="modal-content">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                <h2>Create Master Model Profile</h2>
+                <h2>Create Warehouse Model Profile</h2>
                 <button onClick={() => setIsAddModelMode(false)}><X size={24} color="var(--text-muted)"/></button>
               </div>
               <form onSubmit={handleCreateModel}>
+                
+                {/* Image Upload for Model */}
+                <div className="form-group" style={{ textAlign: 'center', marginBottom: 24 }}>
+                  <input type="file" accept="image/*" ref={modelFileInputRef} style={{ display: 'none' }} onChange={onModelImageUpload} />
+                  <div onClick={() => modelFileInputRef.current?.click()} style={{ width: 100, height: 100, margin: '0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                    {newModelImage ? ( <img src={newModelImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> ) : ( <> <Camera size={32} color="var(--text-muted)" style={{ marginBottom: 8 }} /> <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Model Photo</span> </> )}
+                  </div>
+                </div>
+
                 <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
                   <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                     <label className="form-label">SKU ID</label>
@@ -406,8 +476,8 @@ export default function ModelsPage() {
 
                 {newModelData.colors.length > 0 && (
                   <div className="form-group" style={{ background: 'rgba(99, 102, 241, 0.05)', padding: 16, borderRadius: 12, border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                    <label className="form-label"><Box size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Step 2: Define Sizes & Initial Master Intake</label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.5 }}>Select the available sizes for each color and input the total quantity you purchased into the master warehouse database.</p>
+                    <label className="form-label"><Box size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }}/> Step 2: Define Sizes & Initial Inventory</label>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.5 }}>Select the available sizes for each color and input the total quantity added to the warehouse database.</p>
                     
                     {newModelData.colors.map(colorObj => (
                       <div key={colorObj.name} style={{ marginBottom: 20 }}>
@@ -429,7 +499,7 @@ export default function ModelsPage() {
                              {colorObj.sizes.map(size => (
                                <div key={size} style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '4px 8px' }}>
                                  <span style={{ width: 40, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{size}:</span>
-                                 <input type="number" style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', textAlign: 'right', outline: 'none', fontWeight: 'bold' }} placeholder="Master Qty..." onChange={(e) => handleUpdateInitialStock(colorObj.name, size, e.target.value)} />
+                                 <input type="number" style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', textAlign: 'right', outline: 'none', fontWeight: 'bold' }} placeholder="Total Items..." onChange={(e) => handleUpdateInitialStock(colorObj.name, size, e.target.value)} />
                                </div>
                              ))}
                            </div>
@@ -439,23 +509,26 @@ export default function ModelsPage() {
                   </div>
                 )}
 
-                <button type="submit" className="btn-primary" style={{ width: '100%', opacity: newModelData.colors.length ? 1 : 0.5 }} disabled={!newModelData.colors.length}><ShieldCheck size={20} /> Create Master Inventory</button>
+                <button type="submit" className="btn-primary" style={{ width: '100%', opacity: newModelData.colors.length ? 1 : 0.5 }} disabled={!newModelData.colors.length}><ShieldCheck size={20} /> Create Warehouse Entry</button>
               </form>
             </div>
           </div>
         )}
+        <ImageViewer />
       </div>
     );
   }
 
-  // Dashboard
+  // ---------- SUMMARIZED MAIN INVENTORY DASHBOARD ----------
   return (
     <div className="page" style={{ paddingBottom: 100 }}>
       {/* Global Header */}
       <header className="header" style={{ padding: '0 0 20px 0', borderBottom: 'none' }}>
         <div>
-          <h1 className="title-gradient">Master Control</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Select a parts category to map stock.</p>
+          <h1 className="title-gradient">Inventory</h1>
+          <p style={{ color: 'var(--primary)', fontSize: '1.0rem', fontWeight: 600, marginTop: 4 }}>
+            There are {models.length} models with {globalTotalItems} items.
+          </p>
         </div>
         <button 
           className="btn-secondary" 
@@ -468,7 +541,7 @@ export default function ModelsPage() {
 
       {isEditMode && (
        <div style={{ background: 'rgba(99, 102, 241, 0.1)', border: '1px dashed var(--primary)', padding: 12, borderRadius: 8, marginBottom: 20, color: 'var(--primary-hover)', fontSize: '0.9rem', textAlign: 'center' }}>
-         Customization Mode Active. You add initial container stock here!
+         Edit mode active. You can add new models and restock the warehouse here.
        </div>
       )}
 
@@ -479,16 +552,16 @@ export default function ModelsPage() {
                <div style={{ width: 100, height: 100, borderRadius: 32, background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', marginBottom: 24 }}>
                  <Plus size={48} color="var(--primary)" />
                </div>
-               <h2 style={{ fontSize: '1.5rem', marginBottom: 8 }}>Create First Part</h2>
-               <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Tap here to start customizing and add your first inventory part.</p>
+               <h2 style={{ fontSize: '1.5rem', marginBottom: 8 }}>Create First Category</h2>
+               <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Tap here to start adding your inventory categories.</p>
             </div>
           ) : (
             <div style={{ animation: 'slideUp 0.3s ease-out forwards' }}>
               <PackageOpen size={80} color="var(--text-muted)" style={{ opacity: 0.3, marginBottom: 24 }} />
-              <h2 style={{ fontSize: '1.5rem', marginBottom: 8 }}>Inventory is Empty</h2>
+              <h2 style={{ fontSize: '1.5rem', marginBottom: 8 }}>Warehouse is Empty</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', lineHeight: 1.6 }}>
-                There are no parts created yet.<br/><br/>
-                Tap the <strong><Settings2 size={18} style={{ verticalAlign: 'middle', margin: '0 2px', color: 'var(--text-main)' }}/></strong> button at the top right to enter Customization Mode to start!
+                There are no items tracked yet.<br/><br/>
+                Tap the <strong><Settings2 size={18} style={{ verticalAlign: 'middle', margin: '0 2px', color: 'var(--text-main)' }}/></strong> button at the top right to start tracking items!
               </p>
             </div>
           )}
@@ -507,7 +580,7 @@ export default function ModelsPage() {
                     </div>
                   )}
                   <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 4 }}>{cat.name}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{count} items</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{count} models</div>
                 </div>
               );
             })}
@@ -517,7 +590,7 @@ export default function ModelsPage() {
                 <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <Plus size={32} color="var(--primary)" />
                 </div>
-                <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '1rem' }}>Add Part</div>
+                <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '1rem' }}>Add Category</div>
               </div>
             )}
           </div>
@@ -527,25 +600,26 @@ export default function ModelsPage() {
         <div className="modal-overlay" onClick={(e) => e.target.classList.contains('modal-overlay') && setIsAddCategoryMode(false)}>
           <div className="modal-content">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-              <h2>Customize Inventory Part</h2>
+              <h2>Customize Category</h2>
               <button onClick={() => setIsAddCategoryMode(false)}><X size={24} color="var(--text-muted)"/></button>
             </div>
             <form onSubmit={handleCreateCategory}>
               <div className="form-group" style={{ textAlign: 'center', marginBottom: 24 }}>
-                <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={onImageUpload} />
-                <div onClick={() => fileInputRef.current?.click()} style={{ width: 100, height: 100, margin: '0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
+                <input type="file" accept="image/*" ref={catFileInputRef} style={{ display: 'none' }} onChange={onCatImageUpload} />
+                <div onClick={() => catFileInputRef.current?.click()} style={{ width: 100, height: 100, margin: '0 auto', background: 'rgba(255,255,255,0.05)', borderRadius: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
                   {newCatImage ? ( <img src={newCatImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> ) : ( <> <Camera size={32} color="var(--text-muted)" style={{ marginBottom: 8 }} /> <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Upload Pic</span> </> )}
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Category / Part Name</label>
+                <label className="form-label">Category Name</label>
                 <input type="text" className="input-field" autoFocus placeholder="e.g. Shoes" value={newCatName} onChange={e => setNewCatName(e.target.value)} />
               </div>
-              <button type="submit" className="btn-primary" style={{ width: '100%' }}>Create Part</button>
+              <button type="submit" className="btn-primary" style={{ width: '100%' }}>Create Category</button>
             </form>
           </div>
         </div>
       )}
+      <ImageViewer />
     </div>
   );
 }
