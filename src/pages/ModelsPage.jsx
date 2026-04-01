@@ -117,38 +117,7 @@ export default function ModelsPage() {
     setColorInput('');
   };
 
-  const updateShopDistribution = (modelId, color, size, shopId, val) => {
-    const v = parseInt(val || 0, 10);
-    
-    // Check if we exceed master
-    const masterQty = masterStock[modelId]?.[color]?.[size] || 0;
-    
-    const currentShopStock = shopStock;
-    let otherShopsTotal = 0;
-    
-    // Sum everything EXCEPT the shop we are currently editing
-    if (currentShopStock[modelId]) {
-      Object.keys(currentShopStock[modelId]).forEach(sid => {
-        if (sid !== shopId) {
-          otherShopsTotal += (currentShopStock[modelId]?.[sid]?.[color]?.[size] || 0);
-        }
-      });
-    }
-    
-    if (otherShopsTotal + v > masterQty) {
-      alert(`Cannot assign ${v}. Only ${masterQty - otherShopsTotal} pieces left in Warehouse!`);
-      return;
-    }
 
-    const newShopStock = { ...currentShopStock };
-    if (!newShopStock[modelId]) newShopStock[modelId] = {};
-    if (!newShopStock[modelId][shopId]) newShopStock[modelId][shopId] = {};
-    if (!newShopStock[modelId][shopId][color]) newShopStock[modelId][shopId][color] = {};
-    
-    newShopStock[modelId][shopId][color][size] = v;
-    setShopStock(newShopStock);
-    saveShopStock(newShopStock);
-  };
 
   const updateMasterIntake = (modelId, color, size, val) => {
     const v = parseInt(val || 0, 10);
@@ -270,7 +239,7 @@ export default function ModelsPage() {
                          <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>Size {size}</span>
                          {isEditMode ? (
                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99, 102, 241, 0.1)', padding: '4px 8px', borderRadius: 8, border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                             <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Purchased:</span>
+                             <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Restock Master:</span>
                              <input 
                                type="number"
                                style={{ width: 60, background: 'rgba(255,255,255,0.1)', border: 'none', borderBottom: '1px dashed var(--primary)', outline: 'none', color: '#fff', textAlign: 'center', fontWeight: 'bold' }}
@@ -279,34 +248,15 @@ export default function ModelsPage() {
                              />
                            </div>
                          ) : (
-                           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total Purchased: {masterQty}</span>
+                           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Inventory Added: {masterQty}</span>
                          )}
                       </div>
                       
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                         <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Warehouse</span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                         <div style={{ flex: 1, background: 'rgba(99, 102, 241, 0.1)', padding: '8px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Currently In Warehouse</span>
                             <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{warehouseQty}</span>
                          </div>
-                         
-                         {shops.map(shop => {
-                           const sQty = sStock[shop.id]?.[colorObj.name]?.[size] || 0;
-                           return (
-                             <div key={shop.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '8px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{shop.name}</span>
-                                {isEditMode ? (
-                                  <input 
-                                    type="number"
-                                    style={{ width: 45, background: 'transparent', border: 'none', borderBottom: '1px dashed var(--border-color)', outline: 'none', color: '#fff', textAlign: 'right', fontWeight: 'bold' }}
-                                    value={sQty}
-                                    onChange={(e) => updateShopDistribution(activeModel.id, colorObj.name, size, shop.id, e.target.value)}
-                                  />
-                                ) : (
-                                  <span style={{ fontWeight: 800, color: '#fff' }}>{sQty}</span>
-                                )}
-                             </div>
-                           )
-                         })}
                       </div>
                     </div>
                   )

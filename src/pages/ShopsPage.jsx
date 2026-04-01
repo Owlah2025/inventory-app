@@ -74,7 +74,7 @@ export default function ShopsPage() {
           <div style={{ textAlign: 'center', marginTop: 100, color: 'var(--text-muted)' }}>
              <Store size={48} style={{ opacity: 0.3, marginBottom: 16 }} />
              <p>This shop is completely empty.</p>
-             <p style={{ fontSize: '0.85rem' }}>Assign stock to this location from the <strong>Master Inventory</strong> page.</p>
+             <p style={{ fontSize: '0.85rem' }}>Assign stock to this location from the <strong>Distribution</strong> page.</p>
           </div>
         ) : (
           assignedModels.map(model => {

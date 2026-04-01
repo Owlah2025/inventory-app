@@ -20,11 +20,11 @@ function App() {
         <nav className="bottom-nav">
           <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <Settings2 size={24} />
-            <span>Map Master</span>
+            <span>Inventory</span>
           </NavLink>
           <NavLink to="/warehouse" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <Building2 size={24} />
-            <span>Warehouse</span>
+            <span>Distribution</span>
           </NavLink>
           <NavLink to="/shops" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <Store size={24} />
