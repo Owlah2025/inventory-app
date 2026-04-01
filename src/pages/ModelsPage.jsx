@@ -33,6 +33,10 @@ export default function ModelsPage() {
   const [injectColorSizes, setInjectColorSizes] = useState([]);
   const [injectColorStock, setInjectColorStock] = useState({});
 
+  // Restock Modal
+  const [restockModalData, setRestockModalData] = useState(null);
+  const [restockAmount, setRestockAmount] = useState('');
+
   // Image Viewer
   const [viewingImage, setViewingImage] = useState(null);
 
@@ -134,30 +138,40 @@ export default function ModelsPage() {
     setColorInput('');
   };
 
-  const updateMasterIntake = (modelId, color, size, val) => {
-    const v = parseInt(val || 0, 10);
-    
+  const handleRestockSubmit = () => {
+    const v = parseInt(restockAmount || 0, 10);
+    if (v === 0 || isNaN(v)) {
+      setRestockModalData(null);
+      setRestockAmount('');
+      return;
+    }
+    const { modelId, colorName, size, currentQty } = restockModalData;
+    const newMasterQty = currentQty + v;
+
     // Safety check: limit shrinking inventory below what is physically in shops
     const currentShopStock = shopStock;
     let distributedTotal = 0;
     if (currentShopStock[modelId]) {
       Object.keys(currentShopStock[modelId]).forEach(sid => {
-        distributedTotal += (currentShopStock[modelId][sid]?.[color]?.[size] || 0);
+        distributedTotal += (currentShopStock[modelId][sid]?.[colorName]?.[size] || 0);
       });
     }
 
-    if (v < distributedTotal) {
-      alert(`Invalid restock limit: You cannot lower warehouse inventory below ${distributedTotal} pcs, as these are actively distributed in shops.`);
+    if (newMasterQty < distributedTotal) {
+      alert(`Invalid limit: You cannot lower warehouse inventory below ${distributedTotal} pcs, as these are actively distributed in shops.`);
       return;
     }
 
     const msData = { ...masterStock };
     if (!msData[modelId]) msData[modelId] = {};
-    if (!msData[modelId][color]) msData[modelId][color] = {};
+    if (!msData[modelId][colorName]) msData[modelId][colorName] = {};
     
-    msData[modelId][color][size] = v;
+    msData[modelId][colorName][size] = newMasterQty;
     setMasterStock(msData);
     saveMasterStock(msData);
+
+    setRestockModalData(null);
+    setRestockAmount('');
   };
 
   const handleInjectColor = (e) => {
@@ -252,16 +266,7 @@ export default function ModelsPage() {
           </div>
         </header>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
-          <div className="card" style={{ marginBottom: 0, padding: 16, background: 'var(--primary)', color: '#fff' }}>
-             <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>Total System Inventory</div>
-             <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{grandTotalMaster}</div>
-          </div>
-          <div className="card" style={{ marginBottom: 0, padding: 16, background: 'rgba(255,255,255,0.05)' }}>
-             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Currently in Warehouse</div>
-             <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-main)' }}>{grandTotalMaster - grandTotalDistributed}</div>
-          </div>
-        </div>
+
 
         {activeModel.colors.map(colorObj => {
           return (
@@ -284,19 +289,16 @@ export default function ModelsPage() {
                     <div key={size} style={{ marginBottom: 24 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, color: 'var(--text-main)', fontWeight: 600 }}>
                          <span className="badge" style={{ background: 'rgba(255,255,255,0.1)' }}>Size {size}</span>
-                         {isEditMode ? (
-                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99, 102, 241, 0.1)', padding: '4px 8px', borderRadius: 8, border: '1px solid rgba(99, 102, 241, 0.2)' }}>
-                             <span style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>Restock Warehouse:</span>
-                             <input 
-                               type="number"
-                               style={{ width: 60, background: 'rgba(255,255,255,0.1)', border: 'none', borderBottom: '1px dashed var(--primary)', outline: 'none', color: '#fff', textAlign: 'center', fontWeight: 'bold' }}
-                               value={masterQty}
-                               onChange={(e) => updateMasterIntake(activeModel.id, colorObj.name, size, e.target.value)}
-                             />
-                           </div>
-                         ) : (
-                           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Warehouse Inventory Added: {masterQty}</span>
-                         )}
+                         <button 
+                             className="btn-secondary" 
+                             style={{ padding: '6px 14px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(99,102,241,0.15)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 8, cursor: 'pointer', fontWeight: 700 }}
+                             onClick={() => {
+                               setRestockModalData({ modelId: activeModel.id, colorName: colorObj.name, size, currentQty: masterQty });
+                               setRestockAmount('');
+                             }}
+                           >
+                             <Plus size={14} /> Restock
+                           </button>
                       </div>
                       
                       <div style={{ display: 'flex', gap: 8 }}>
